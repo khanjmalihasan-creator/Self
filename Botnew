@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+# سلف بات ساده برای GitHub
+import os
+import requests
+import time
+import random
+from datetime import datetime
+
+# توکن ربات تو
+TOKEN = "8427517390:AAGGGepVprNmhjEBibZnewxOOuWKHv_ojNE"
+
+print("🤖 سلف بات فارسی فعال شد!")
+
+# داده‌های ذخیره‌سازی
+enemy_id = None
+enemy_name = None
+enemy_mode = False
+
+# لیست فحش‌های رکیک
+BAD_WORDS = [
+    "کص ننت", "کیرم دهنت", "جنده", "کونی", "لاشی",
+    "کص کش", "حروم زاده", "گاییدمت", "ننه جنده",
+    "کص خل", "خارکصه", "تخم سگ", "بی ناموس"
+]
+
+def send_message(chat_id, text, reply_to=None):
+    """ارسال پیام از طریق ربات"""
+    try:
+        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+        data = {
+            'chat_id': chat_id,
+            'text': text,
+            'parse_mode': 'HTML'
+        }
+        if reply_to:
+            data['reply_to_message_id'] = reply_to
+        
+        response = requests.post(url, data=data, timeout=10)
+        return response.json()
+    except Exception as e:
+        print(f"⚠️ خطا در ارسال پیام: {e}")
+        return None
+
+def process_update(update):
+    """پردازش آپدیت دریافتی"""
+    global enemy_id, enemy_name, enemy_mode
+    
+    if 'message' not in update:
+        return
+    
+    msg = update['message']
+    chat_id = msg['chat']['id']
+    text = msg.get('text', '').strip()
+    user_id = msg['from']['id']
+    username = msg['from'].get('username', '')
+    first_name = msg['from'].get('first_name', 'کاربر')
+    message_id = msg['message_id']
+    
+    print(f"📨 پیام از {first_name}: {text}")
+    
+    # دستور /start
+    if text == '/start':
+        send_message(chat_id,
+            "🤖 <b>سلف بات فارسی</b>\n\n"
+            "🔥 <b>ویژگی‌ها:</b>\n"
+            "• تایم ایران خودکار\n"
+            "• پاسخ خودکار\n"
+            "• حالت دشمن\n"
+            "• 24/7 آنلاین\n\n"
+            "🎯 <b>دستورات:</b>\n"
+            "• تنظیم دشمن (با ریپلای)\n"
+            "• خاموش دشمن\n"
+            "• وضعیت\n"
+            "• راهنما"
+        )
+        return
+    
+    # دستور راهنما
+    elif text == '/help':
+        send_message(chat_id,
+            "📖 <b>راهنمای سلف بات:</b>\n\n"
+            "🎯 <b>نحوه استفاده:</b>\n"
+            "1. روی پیام کاربر ریپلای کنید\n"
+            "2. بنویسید: تنظیم دشمن\n"
+            "3. از این به بعد بهش فحش می‌ده\n\n"
+            "⚙️ <b>دستورات:</b>\n"
+            "/start - شروع بات\n"
+            "/help - این راهنما\n"
+            "/status - وضعیت بات\n"
+            "/time - زمان ایران"
+        )
+        return
+    
+    # دستور وضعیت
+    elif text == '/status':
+        status_msg = f"""
+📊 <b>وضعیت سلف بات:</b>
+
+🔥 حالت دشمن: {'✅ فعال' if enemy_mode else '⭕ غیرفعال'}
+👤 دشمن فعلی: {enemy_name if enemy_mode else 'ندارد'}
+🕒 زمان: {datetime.now().strftime('%H:%M:%S')}
+📡 وضعیت: آنلاین
+        """
+        send_message(chat_id, status_msg)
+        return
+    
+    # دستور زمان
+    elif text == '/time':
+        now = datetime.now()
+        time_str = now.strftime('%Y/%m/%d - %H:%M:%S')
+        send_message(chat_id, f"🕒 <b>زمان ایران:</b> {time_str}")
+        return
+    
+    # تنظیم دشمن
+    if text == 'تنظیم دشمن' and 'reply_to_message' in msg:
+        target_msg = msg['reply_to_message']
+        target_user = target_msg['from']
+        
+        enemy_id = target_user['id']
+        enemy_name = target_user.get('first_name', 'کاربر')
+        enemy_mode = True
+        
+        send_message(chat_id,
+            f"✅ <b>دشمن تنظیم شد!</b>\n\n"
+            f"👤 نام: {enemy_name}\n"
+            f"🆔 ID: {enemy_id}\n"
+            f"🔥 حالت: فعال\n\n"
+            f"از این به بعد به همه پیام‌های این کاربر فحش می‌دهم!"
+        )
+        print(f"🎯 دشمن تنظیم شد: {enemy_name} (ID: {enemy_id})")
+        return
+    
+    # خاموش کردن دشمن
+    elif text == 'خاموش دشمن':
+        enemy_mode = False
+        send_message(chat_id, "✅ حالت دشمن غیرفعال شد")
+        print("🟢 حالت دشمن غیرفعال شد")
+        return
+    
+    # اگر دشمن پیام داد
+    if enemy_mode and enemy_id and user_id == enemy_id:
+        bad_word = random.choice(BAD_WORDS)
+        emoji = random.choice(["🔥", "💢", "⚡", "👊", "😡"])
+        
+        send_message(chat_id, f"{emoji} <b>{bad_word}</b> {emoji}", reply_to=message_id)
+        print(f"🔥 به دشمن پاسخ دادم: {bad_word}")
+        return
+    
+    # پاسخ خودکار به پیام خصوصی
+    if msg['chat']['type'] == 'private':
+        # تأخیر رندوم 1-5 ثانیه
+        time.sleep(random.uniform(1, 5))
+        
+        send_message(chat_id,
+            "🔺به دلیل مشغله کاری و قطعی مکرر اینترنت ممکنه کمی با تاخیر جواب بگیرید"
+        )
+        print(f"🤖 پاسخ خودکار به {first_name}")
+
+def main():
+    """تابع اصلی اجرا"""
+    print("=" * 50)
+    print("🚀 سلف بات فارسی - نسخه GitHub")
+    print(f"🤖 توکن: {TOKEN[:10]}...")
+    print("⏰ شروع: " + datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
+    print("=" * 50)
+    
+    offset = 0
+    
+    while True:
+        try:
+            # دریافت آپدیت‌های جدید
+            url = f"https://api.telegram.org/bot{TOKEN}/getUpdates"
+            params = {
+                'offset': offset,
+                'timeout': 30,
+                'allowed_updates': ['message']
+            }
+            
+            response = requests.get(url, params=params, timeout=35)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get('ok'):
+                    for update in data.get('result', []):
+                        offset = update['update_id'] + 1
+                        process_update(update)
+            
+            # هر ثانیه چک کن
+            time.sleep(1)
+            
+        except KeyboardInterrupt:
+            print("\n\n🛑 سلف بات متوقف شد.")
+            break
+        except Exception as e:
+            print(f"⚠️ خطا: {e}")
+            time.sleep(5)
+
+if __name__ == "__main__":
+    main()
